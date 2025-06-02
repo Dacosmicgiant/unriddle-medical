@@ -1,38 +1,100 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import { Header } from './components/layout/Header';
+import { Navigation } from './components/layout/Navigation';
+import { Dashboard } from './components/dashboard/Dashboard';
+import { PatientManagement } from './components/patients/PatientManagement';
+import { PatientModal } from './components/patients/PatientModal';
+import { usePatients } from './hooks/usePatients';
+import { LoadingSpinner } from './components/ui';
+import { ErrorMessage } from './components/ui';
+import type { Patient } from './types/patient';
 
+const App: React.FC = () => {
+  const {
+    state,
+    addPatient,
+    updatePatient,
+    deletePatient,
+    setSearchTerm,
+    setFilterDepartment,
+    setFilterStatus,
+    fetchPatients
+  } = usePatients();
 
-function App() {
-  const [count, setCount] = useState(0)
+  const [showModal, setShowModal] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
+
+  const handleSubmitPatient = (patientData: Patient | Omit<Patient, 'id'>) => {
+    if ('id' in patientData) {
+      updatePatient(patientData);
+      setEditingPatient(null);
+    } else {
+      addPatient(patientData);
+    }
+    setShowModal(false);
+  };
+
+  const handleEditPatient = (patient: Patient) => {
+    setEditingPatient(patient);
+    setShowModal(true);
+  };
+
+  const handleAddPatient = () => {
+    setEditingPatient(null);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingPatient(null);
+  };
+
+  if (state.loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (state.error) {
+    return <ErrorMessage error={state.error} onRetry={fetchPatients} />;
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1 className="text-3xl font-bold">
-        Hello world!
-      </h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className="min-h-screen bg-gray-50">
+      <Header onAddPatient={handleAddPatient} />
+      
+      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+      
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'dashboard' && <Dashboard patients={state.patients} />}
+        
+        {activeTab === 'patients' && (
+          <PatientManagement
+            patients={state.patients}
+            searchTerm={state.searchTerm}
+            filterDepartment={state.filterDepartment}
+            filterStatus={state.filterStatus}
+            onSearchChange={setSearchTerm}
+            onDepartmentFilterChange={setFilterDepartment}
+            onStatusFilterChange={setFilterStatus}
+            onEditPatient={handleEditPatient}
+            onDeletePatient={deletePatient}
+          />
+        )}
+      </main>
 
-export default App
+      {showModal && (
+        <PatientModal
+          patient={editingPatient}
+          onSubmit={handleSubmitPatient}
+          onCancel={handleCloseModal}
+        />
+      )}
+    </div>
+  );
+};
+
+export default App;
